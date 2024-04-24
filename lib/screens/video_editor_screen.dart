@@ -20,6 +20,7 @@ class _VideoEditorState extends State<VideoEditor> {
   final _isExporting = ValueNotifier<bool>(false);
   final double height = 60;
 
+  // Video editor controller => use to get the video file path, video thumbnail, video info, etc.
   late final VideoEditorController _controller = VideoEditorController.file(
     widget.file,
     minDuration: const Duration(seconds: 1),
@@ -47,6 +48,7 @@ class _VideoEditorState extends State<VideoEditor> {
     super.dispose();
   }
 
+  // Error snackbar
   void _showErrorSnackBar(String message) =>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -55,6 +57,7 @@ class _VideoEditorState extends State<VideoEditor> {
         ),
       );
 
+  // Exporting video function
   void _exportVideo() async {
     _exportingProgress.value = 0;
     _isExporting.value = true;
@@ -88,6 +91,7 @@ class _VideoEditorState extends State<VideoEditor> {
     );
   }
 
+  // Exporting cover function
   void _exportCover() async {
     final config = CoverFFmpegVideoEditorConfig(_controller);
     final execute = await config.getExecuteConfig();
@@ -112,8 +116,7 @@ class _VideoEditorState extends State<VideoEditor> {
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async => false,
+    return PopScope(
       child: Scaffold(
         backgroundColor: Colors.black,
         body: _controller.initialized
@@ -246,6 +249,7 @@ class _VideoEditorState extends State<VideoEditor> {
     );
   }
 
+  // Top navigation widget
   Widget _topNavBar() {
     return SafeArea(
       child: SizedBox(
@@ -316,6 +320,7 @@ class _VideoEditorState extends State<VideoEditor> {
         duration.inSeconds.remainder(60).toString().padLeft(2, '0')
       ].join(":");
 
+  // Trim slider widget
   List<Widget> _trimSlider() {
     return [
       AnimatedBuilder(
@@ -361,6 +366,7 @@ class _VideoEditorState extends State<VideoEditor> {
     ];
   }
 
+  // Cover selection widget
   Widget _coverSelection() {
     return SingleChildScrollView(
       child: Center(

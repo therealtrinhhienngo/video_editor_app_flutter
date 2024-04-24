@@ -8,8 +8,10 @@ environment:
 
 dependencies:
   ffmpeg_kit_flutter: ^6.0.3
+  file_picker: ^8.0.2
   flutter:
     sdk: flutter
+  flutter_sound: ^9.4.6
   fraction: ^5.0.2
   image_picker: ^1.1.0
   video_editor: ^3.0.0
