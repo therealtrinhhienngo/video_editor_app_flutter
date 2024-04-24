@@ -52,6 +52,9 @@ class _VideoEditorState extends State<VideoEditor> {
     final String command =
         '-i ${_selectedMusic!.path} -i ${widget.file.path} -c:v copy -c:a aac -strict experimental -shortest $outputFilePath';
 
+    String demoPath = widget.file.path;
+    print("Check path: $demoPath");
+
     // Execute FFmpeg command
     FFmpegKit.executeAsync(command, (session) async {
       if (ReturnCode.isSuccess(await session.getReturnCode())) {
@@ -61,10 +64,14 @@ class _VideoEditorState extends State<VideoEditor> {
         // Show success message or perform any additional actions
       } else {
         // Merge failed
-        String errorMessage = await session.getOutput() ?? "";
+        List<String> errorMessage = (await session.getAllLogs()).cast<String>();
+
+        for (var i = 0; i < errorMessage.length; i++) {
+          String error = (errorMessage[i]);
+          print("Merge Error [$i]: $error");
+        }
 
         // Show error message or perform error handling
-        print("Merge failed: $errorMessage");
       }
     });
   }
@@ -230,6 +237,9 @@ class _VideoEditorState extends State<VideoEditor> {
                                   child: Column(
                                     children: [
                                       const TabBar(
+                                        labelColor: Colors.white,
+                                        dividerColor: Colors.white,
+                                        indicatorColor: Colors.white,
                                         tabs: [
                                           Row(
                                               mainAxisAlignment:
