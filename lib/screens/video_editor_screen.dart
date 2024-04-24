@@ -3,6 +3,9 @@ import 'dart:io';
 import 'package:demo_project/class_support/export_service.dart';
 import 'package:demo_project/components/crop_page.dart';
 import 'package:demo_project/components/export_result.dart';
+import 'package:ffmpeg_kit_flutter/ffmpeg_kit.dart';
+import 'package:ffmpeg_kit_flutter/return_code.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:video_editor/video_editor.dart';
 
@@ -19,6 +22,52 @@ class _VideoEditorState extends State<VideoEditor> {
   final _exportingProgress = ValueNotifier<double>(0.0);
   final _isExporting = ValueNotifier<bool>(false);
   final double height = 60;
+
+  // Sound picker value
+  File? _selectedMusic;
+
+  // Select music function
+  void _selectMusic() async {
+    FilePickerResult? result =
+        await FilePicker.platform.pickFiles(type: FileType.audio);
+    if (result != null) {
+      setState(() {
+        _selectedMusic = File(result.files.single.path!);
+      });
+      _mergeAudioAndVideo();
+    }
+  }
+
+  // Merging music and video function
+  void _mergeAudioAndVideo() async {
+    if (_selectedMusic == null) {
+      // No music selected
+      return;
+    }
+
+    // Output file path (merged video with audio)
+    String outputFilePath = File('storage/emulated/0/my_folder/o.mp4').path;
+
+    // FFmpeg command to merge audio and video
+    final String command =
+        '-i ${_selectedMusic!.path} -i ${widget.file.path} -c:v copy -c:a aac -strict experimental -shortest $outputFilePath';
+
+    // Execute FFmpeg command
+    FFmpegKit.executeAsync(command, (session) async {
+      if (ReturnCode.isSuccess(await session.getReturnCode())) {
+        // Merge successful
+        print("Merge successfully");
+
+        // Show success message or perform any additional actions
+      } else {
+        // Merge failed
+        String errorMessage = await session.getOutput() ?? "";
+
+        // Show error message or perform error handling
+        print("Merge failed: $errorMessage");
+      }
+    });
+  }
 
   // Video editor controller => use to get the video file path, video thumbnail, video info, etc.
   late final VideoEditorController _controller = VideoEditorController.file(
@@ -76,7 +125,8 @@ class _VideoEditorState extends State<VideoEditor> {
     await ExportService.runFFmpegCommand(
       await config.getExecuteConfig(),
       onProgress: (stats) {
-        _exportingProgress.value = config.getFFmpegProgress(stats.getTime().toInt());
+        _exportingProgress.value =
+            config.getFFmpegProgress(stats.getTime().toInt());
       },
       onError: (e, s) => _showErrorSnackBar("Error on export video :("),
       onCompleted: (file) {
@@ -125,7 +175,10 @@ class _VideoEditorState extends State<VideoEditor> {
                   children: [
                     Column(
                       children: [
+                        // Top Nav Bar
                         _topNavBar(),
+
+                        // Main View
                         Expanded(
                           child: DefaultTabController(
                             length: 2,
@@ -256,30 +309,57 @@ class _VideoEditorState extends State<VideoEditor> {
         height: height,
         child: Row(
           children: [
+            // Exit App Button
             Expanded(
               child: IconButton(
                 onPressed: () => Navigator.of(context).pop(),
-                icon: const Icon(Icons.exit_to_app),
+                icon: const Icon(
+                  Icons.exit_to_app,
+                  color: Colors.white,
+                ),
                 tooltip: 'Leave editor',
               ),
             ),
-            const VerticalDivider(endIndent: 22, indent: 22),
+
+            // Divider
+            const VerticalDivider(
+              endIndent: 22,
+              indent: 22,
+              color: Colors.white,
+            ),
+
+            // Rotate video to left
             Expanded(
               child: IconButton(
                 onPressed: () =>
                     _controller.rotate90Degrees(RotateDirection.left),
-                icon: const Icon(Icons.rotate_left),
+                icon: const Icon(
+                  Icons.rotate_left,
+                  color: Colors.white,
+                ),
                 tooltip: 'Rotate unclockwise',
               ),
             ),
+
+            // Rotate video to right
             Expanded(
               child: IconButton(
                 onPressed: () =>
                     _controller.rotate90Degrees(RotateDirection.right),
-                icon: const Icon(Icons.rotate_right),
+                icon: const Icon(
+                  Icons.rotate_right,
+                  color: Colors.white,
+                ),
                 tooltip: 'Rotate clockwise',
               ),
             ),
+
+            // Audio selection
+            Expanded(
+              child: _audioSection(),
+            ),
+
+            // Crop video button
             Expanded(
               child: IconButton(
                 onPressed: () => Navigator.push(
@@ -288,15 +368,29 @@ class _VideoEditorState extends State<VideoEditor> {
                     builder: (context) => CropPage(controller: _controller),
                   ),
                 ),
-                icon: const Icon(Icons.crop),
+                icon: const Icon(
+                  Icons.crop,
+                  color: Colors.white,
+                ),
                 tooltip: 'Open crop screen',
               ),
             ),
-            const VerticalDivider(endIndent: 22, indent: 22),
+
+            // Divider
+            const VerticalDivider(
+              endIndent: 22,
+              indent: 22,
+              color: Colors.white,
+            ),
+
+            // Save button => save video & save cover
             Expanded(
               child: PopupMenuButton(
                 tooltip: 'Open export menu',
-                icon: const Icon(Icons.save),
+                icon: const Icon(
+                  Icons.save,
+                  color: Colors.white,
+                ),
                 itemBuilder: (context) => [
                   PopupMenuItem(
                     onTap: _exportCover,
@@ -315,6 +409,7 @@ class _VideoEditorState extends State<VideoEditor> {
     );
   }
 
+  // Formatter for duration
   String formatter(Duration duration) => [
         duration.inMinutes.remainder(60).toString().padLeft(2, '0'),
         duration.inSeconds.remainder(60).toString().padLeft(2, '0')
@@ -364,6 +459,33 @@ class _VideoEditorState extends State<VideoEditor> {
         ),
       )
     ];
+  }
+
+  // Sound picker widget
+  Widget _audioSection() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 0),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              _selectedMusic != null
+                  ? _selectedMusic!.path.split('/').last
+                  : 'No music selected',
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          IconButton(
+            onPressed: _selectMusic,
+            icon: const Icon(
+              Icons.music_note,
+              color: Colors.white,
+            ),
+            tooltip: 'Select Music',
+          ),
+        ],
+      ),
+    );
   }
 
   // Cover selection widget

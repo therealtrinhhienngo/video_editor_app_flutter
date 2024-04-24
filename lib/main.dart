@@ -1,3 +1,4 @@
+import 'package:demo_project/screens/demo_pick_sound_screen.dart';
 import 'package:demo_project/screens/video_picker_screen.dart';
 import 'package:flutter/material.dart';
 
@@ -8,6 +9,7 @@ void main() {
 class Routes {
   static String pickVideo = "/videoPicker";
   static String videoEditor = "/videoEditor";
+  static String soundDemo = "/soundDemo";
 }
 
 class MainApp extends StatelessWidget {
@@ -19,7 +21,8 @@ class MainApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       initialRoute: Routes.pickVideo,
       routes: {
-        Routes.pickVideo: (context) => const VideoPickerScreen()
+        Routes.pickVideo: (context) => const VideoPickerScreen(),
+        Routes.soundDemo: (context) => const DemoMusicScreen()
       },
     );
   }
