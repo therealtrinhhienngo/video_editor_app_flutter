@@ -7,12 +7,11 @@ import 'package:ffmpeg_kit_flutter/ffmpeg_kit.dart';
 import 'package:ffmpeg_kit_flutter/return_code.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_editor/video_editor.dart';
 
 class VideoEditor extends StatefulWidget {
-  const VideoEditor({super.key, required this.file});
-
-  final File file;
+  const VideoEditor({super.key});
 
   @override
   State<VideoEditor> createState() => _VideoEditorState();
@@ -23,8 +22,27 @@ class _VideoEditorState extends State<VideoEditor> {
   final _isExporting = ValueNotifier<bool>(false);
   final double height = 60;
 
+  // Video picking file
+  File? file;
+
+  // Get video picking file
+  Future<void> getVideoFile() async {
+    String videoPath = await _getVideoPathFromSharedPreferences();
+    File newVideoFile = File(videoPath);
+
+    setState(() {
+      file = newVideoFile;
+    });
+  }
+
+  Future<String> _getVideoPathFromSharedPreferences() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    return prefs.getString('videoPath') ?? '';
+  }
+
   // Sound picker value
   File? _selectedMusic;
+  File? pickedMusicFile;
 
   // Select music function
   void _selectMusic() async {
@@ -38,6 +56,16 @@ class _VideoEditorState extends State<VideoEditor> {
     }
   }
 
+  Future<void> _saveMusicToSharedPreferences(String imagePath) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString('musicPath', imagePath);
+  }
+
+  Future<String> _getMusicPathFromSharedPreferences() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    return prefs.getString('musicPath') ?? '';
+  }
+
   // Merging music and video function
   void _mergeAudioAndVideo() async {
     if (_selectedMusic == null) {
@@ -45,15 +73,29 @@ class _VideoEditorState extends State<VideoEditor> {
       return;
     }
 
+    // Save music to local storage
+    await _saveMusicToSharedPreferences(_selectedMusic!.path);
+
+    Future<void> getMusicFile() async {
+      String musicPath = await _getMusicPathFromSharedPreferences();
+      File newMusicFile = File(musicPath);
+
+      setState(() {
+        pickedMusicFile = newMusicFile;
+      });
+    }
+
+    getMusicFile();
+
     // Output file path (merged video with audio)
     String outputFilePath = File('storage/emulated/0/my_folder/o.mp4').path;
 
     // FFmpeg command to merge audio and video
     final String command =
-        '-i ${_selectedMusic!.path} -i ${widget.file.path} -c:v copy -c:a aac -strict experimental -shortest $outputFilePath';
+        '-i ${pickedMusicFile?.path} -i ${file!.path} -c:v copy -c:a aac -strict experimental -shortest $outputFilePath';
 
-    String demoPath = widget.file.path;
-    print("Check path: $demoPath");
+    print("Check path: $pickedMusicFile");
+    print("Demo Output path: $outputFilePath");
 
     // Execute FFmpeg command
     FFmpegKit.executeAsync(command, (session) async {
@@ -67,7 +109,7 @@ class _VideoEditorState extends State<VideoEditor> {
         List<String> errorMessage = (await session.getAllLogs()).cast<String>();
 
         for (var i = 0; i < errorMessage.length; i++) {
-          String error = (errorMessage[i]);
+          String error = errorMessage[i];
           print("Merge Error [$i]: $error");
         }
 
@@ -78,7 +120,7 @@ class _VideoEditorState extends State<VideoEditor> {
 
   // Video editor controller => use to get the video file path, video thumbnail, video info, etc.
   late final VideoEditorController _controller = VideoEditorController.file(
-    widget.file,
+    file!,
     minDuration: const Duration(seconds: 1),
     maxDuration: const Duration(seconds: 10),
   );
@@ -86,6 +128,7 @@ class _VideoEditorState extends State<VideoEditor> {
   @override
   void initState() {
     super.initState();
+    getVideoFile();
     _controller
         .initialize(aspectRatio: 9 / 16)
         .then((_) => setState(() {}))

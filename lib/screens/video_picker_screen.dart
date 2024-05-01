@@ -1,8 +1,7 @@
-import 'dart:io';
-
 import 'package:demo_project/screens/video_editor_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class VideoPickerScreen extends StatefulWidget {
   const VideoPickerScreen({super.key});
@@ -18,13 +17,19 @@ class _VideoPickerScreenState extends State<VideoPickerScreen> {
     final XFile? file = await _picker.pickVideo(source: ImageSource.gallery);
 
     if (mounted && file != null) {
+      _saveVideoToSharedPreferences(file.path);
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (BuildContext context) => VideoEditor(file: File(file.path)),
+          builder: (BuildContext context) => const VideoEditor(),
         ),
       );
     }
+  }
+
+  Future<void> _saveVideoToSharedPreferences(String videoPath) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString('videoPath', videoPath);
   }
 
   @override
