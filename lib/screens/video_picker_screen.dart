@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:demo_project/screens/video_editor_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -21,7 +23,9 @@ class _VideoPickerScreenState extends State<VideoPickerScreen> {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (BuildContext context) => const VideoEditor(),
+          builder: (BuildContext context) => VideoEditor(
+            handleFile: File(file.path),
+          ),
         ),
       );
     }

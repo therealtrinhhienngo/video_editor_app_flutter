@@ -11,7 +11,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_editor/video_editor.dart';
 
 class VideoEditor extends StatefulWidget {
-  const VideoEditor({super.key});
+  final File handleFile;
+  const VideoEditor({super.key, required this.handleFile});
 
   @override
   State<VideoEditor> createState() => _VideoEditorState();
@@ -22,27 +23,46 @@ class _VideoEditorState extends State<VideoEditor> {
   final _isExporting = ValueNotifier<bool>(false);
   final double height = 60;
 
-  // Video picking file
-  File? file;
-
   // Get video picking file
-  Future<void> getVideoFile() async {
-    String videoPath = await _getVideoPathFromSharedPreferences();
-    File newVideoFile = File(videoPath);
-
-    setState(() {
-      file = newVideoFile;
-    });
-  }
+  Future<void> getVideoFile() async {}
 
   Future<String> _getVideoPathFromSharedPreferences() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     return prefs.getString('videoPath') ?? '';
   }
 
+  // Handle file
+  File? file;
+
   // Sound picker value
   File? _selectedMusic;
   File? pickedMusicFile;
+
+  @override
+  void initState() {
+    super.initState();
+
+    setState(() {
+      file = widget.handleFile;
+    });
+
+    _controller
+        .initialize(aspectRatio: 9 / 16)
+        .then((_) => setState(() {}))
+        .catchError((error) {
+      // handle minumum duration bigger than video duration error
+      Navigator.pop(context);
+    }, test: (e) => e is VideoMinDurationError);
+  }
+
+  @override
+  void dispose() async {
+    _exportingProgress.dispose();
+    _isExporting.dispose();
+    _controller.dispose();
+    ExportService.dispose();
+    super.dispose();
+  }
 
   // Select music function
   void _selectMusic() async {
@@ -66,6 +86,15 @@ class _VideoEditorState extends State<VideoEditor> {
     return prefs.getString('musicPath') ?? '';
   }
 
+  Future<void> getMusicFile() async {
+    String musicPath = await _getMusicPathFromSharedPreferences();
+    File newMusicFile = File(musicPath);
+
+    setState(() {
+      pickedMusicFile = newMusicFile;
+    });
+  }
+
   // Merging music and video function
   void _mergeAudioAndVideo() async {
     if (_selectedMusic == null) {
@@ -76,42 +105,38 @@ class _VideoEditorState extends State<VideoEditor> {
     // Save music to local storage
     await _saveMusicToSharedPreferences(_selectedMusic!.path);
 
-    Future<void> getMusicFile() async {
-      String musicPath = await _getMusicPathFromSharedPreferences();
-      File newMusicFile = File(musicPath);
-
-      setState(() {
-        pickedMusicFile = newMusicFile;
-      });
-    }
-
-    getMusicFile();
+    await getMusicFile();
 
     // Output file path (merged video with audio)
     String outputFilePath = File('storage/emulated/0/my_folder/o.mp4').path;
 
     // FFmpeg command to merge audio and video
     final String command =
-        '-i ${pickedMusicFile?.path} -i ${file!.path} -c:v copy -c:a aac -strict experimental -shortest $outputFilePath';
+        '-i ${pickedMusicFile!.path} -i ${file!.path} -c:v copy -c:a aac -strict experimental -shortest $outputFilePath';
 
     print("Check path: $pickedMusicFile");
     print("Demo Output path: $outputFilePath");
 
     // Execute FFmpeg command
-    FFmpegKit.executeAsync(command, (session) async {
-      if (ReturnCode.isSuccess(await session.getReturnCode())) {
+    await FFmpegKit.executeAsync(command, (session) async {
+      final returnCode = await session.getReturnCode();
+      if (ReturnCode.isSuccess(returnCode)) {
         // Merge successful
         print("Merge successfully");
 
-        // Show success message or perform any additional actions
+        // Handle the merging file with music
+        setState(() {
+          file = File(outputFilePath);
+          print("Handle complete");
+        });
+      } else if (ReturnCode.isCancel(returnCode)) {
+        // Merge cancel
+        print("Merge cancel");
+
+        // Show error message or perform error handling
       } else {
         // Merge failed
-        List<String> errorMessage = (await session.getAllLogs()).cast<String>();
-
-        for (var i = 0; i < errorMessage.length; i++) {
-          String error = errorMessage[i];
-          print("Merge Error [$i]: $error");
-        }
+        print("Merge failed");
 
         // Show error message or perform error handling
       }
@@ -120,32 +145,10 @@ class _VideoEditorState extends State<VideoEditor> {
 
   // Video editor controller => use to get the video file path, video thumbnail, video info, etc.
   late final VideoEditorController _controller = VideoEditorController.file(
-    file!,
+    file ?? File(""),
     minDuration: const Duration(seconds: 1),
     maxDuration: const Duration(seconds: 10),
   );
-
-  @override
-  void initState() {
-    super.initState();
-    getVideoFile();
-    _controller
-        .initialize(aspectRatio: 9 / 16)
-        .then((_) => setState(() {}))
-        .catchError((error) {
-      // handle minumum duration bigger than video duration error
-      Navigator.pop(context);
-    }, test: (e) => e is VideoMinDurationError);
-  }
-
-  @override
-  void dispose() async {
-    _exportingProgress.dispose();
-    _isExporting.dispose();
-    _controller.dispose();
-    ExportService.dispose();
-    super.dispose();
-  }
 
   // Error snackbar
   void _showErrorSnackBar(String message) =>
